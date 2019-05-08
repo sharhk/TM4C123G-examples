@@ -1,0 +1,64 @@
+// 初始配置头文件
+//基本头文件
+#include<stdint.h>
+#include <stdbool.h>
+#include"inc/hw_memmap.h"
+#include"inc/hw_types.h"
+#include"driverlib/sysctl.h"
+#include"driverlib/gpio.h"
+#include"driverlib/uart.h"
+#include"driverlib/pin_map.h"
+#include"inc/hw_ints.h"
+#include"utils/uartstdio.h"
+#include"driverlib/interrupt.h"
+void initial_uart_interrupt(void);
+void UARTSend(const uint8_t *data, uint32_t Count);
+void UARTIntReceive(void);
+
+
+int main(void){
+	 initial_uart_interrupt();
+	 UARTIntRegister(UART0_BASE,UARTIntReceive);
+	 return(0);
+}
+
+void initial_uart_interrupt(void){
+    //设置时钟频率为16MHZ，时钟源外部晶振
+	SysCtlClockSet(SYSCTL_SYSDIV_1 | SYSCTL_USE_OSC | SYSCTL_OSC_MAIN | SYSCTL_XTAL_16MHZ);
+	//使能gpio和uart
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
+	//引脚配置rx,tx
+	GPIOPinConfigure(GPIO_PA0_U0RX);
+	GPIOPinConfigure(GPIO_PA1_U0TX);
+	//gpio 的uart 功能开启
+	GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0| GPIO_PIN_1);
+	//uart配置
+	UARTConfigSetExpClk(UART0_BASE, SysCtlClockGet(), 9600, (UART_CONFIG_WLEN_8 |  UART_CONFIG_STOP_ONE | UART_CONFIG_PAR_NONE));
+	//使能处理器中断
+	IntMasterEnable();
+	//使能中断for uart连接串口
+	 IntEnable(INT_UART0);
+	// 使能uart中断中的接收和发送中断
+	 UARTIntEnable(UART0_BASE, UART_INT_RX | UART_INT_RT);
+	 //Note：使能过程要硬件软件都进行使能并进行联合配置
+}
+	//中断接收函数
+void UARTIntReceive(void){
+	uint32_t ulStatus;
+    //获取中断状态
+    ulStatus = UARTIntStatus(UART0_BASE, true);
+    while(UARTCharsAvail(UART0_BASE)){
+    UARTCharPutNonBlocking(UART0_BASE, UARTCharGetNonBlocking(UART0_BASE));
+    }
+    //清除中断标志,这步适当提前，因为会要几个时钟周期才能真正清楚。
+    UARTIntClear(UART0_BASE, ulStatus);
+}
+void UARTSend(const uint8_t *data, uint32_t Count){
+    while(Count--)
+    {
+        //将要发送的字符写进UART
+        UARTCharPutNonBlocking(UART0_BASE, *data++);
+        //UARTCharPut(UART0_BASE, *pucBuffer++);
+    }
+}
