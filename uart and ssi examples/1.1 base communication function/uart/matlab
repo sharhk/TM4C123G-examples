@@ -1,0 +1,23 @@
+global s
+delete(instrfindall);%删除现在设置的串口
+s=serial('com3');
+set(s,'BaudRate',9600,'Parity','none','DataBits',8,'StopBits',1);
+s.InputBufferSize=4096;
+s.OutputBufferSize=4096;
+s.BytesAvailableFcnMode = 'byte';
+s.BytesAvailableFcnCount = 8;
+fopen(s);
+b=num2str(11011010);
+fwrite(s,b ,'uint8');
+%fwrite(s,b,'uint8');
+x=s.BytesAvailable;
+s.BytesAvailableFcn = @callback;
+y=s.BytesAvailable;
+%fclose(s);
+%delete(s);     %  直接关掉的话影响接收，当然是在matlab只跑这点程序时使用
+
+function callback(obj,~)
+global s
+  c = fread(s, 8);
+  d=char(c')
+end
